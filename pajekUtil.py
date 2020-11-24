@@ -1,99 +1,114 @@
-#-*- coding:utf-8 -*-
-#pajek util ,create pajek file
+"""
+This code provides a series of basic functions to create pajek-style files, such as. net,. clu.
+"""
+
+# Author: Liang Chen <squirrel_d@126.com>
+# License: BSD 3 clause
+
 import networkx as nx
 import copy
 import queue_set
-from xlwt import Workbook
 import Queue
 from xgmml import *
 
 class PajekUtil(object):
     def __init__(self):
         self.g = None
-        self.sim_matrix = None
-    # create Graph from (sourcenode,endnode) in a txt file
-    def createNetFromFile(self,fileAddre):
-        G=nx.DiGraph()
+        self.similarity_matrix = None
+
+    def createNetFromList(self,pair_array):
+        """
+        create networkx DiGraph g from a list with [sourcenode,endnode] in each element
+        :param pair_array: is a list
+        :return g:DiGraph
+        """
+        g=nx.DiGraph()
+        nodes_collection = sum(pair_array,[])
+        nodes = [i for i in set(nodes_collection)]
+        for i in range(len(nodes)):
+            g.add_node(i+1,ga = nodes[i])
+        for i in pair_array:
+            g.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,{'weight':1.0})
+        return g
+
+    def createNetFromFile(self,filePath):
+        """
+        create networkx DiGraph g from a txt file with sourcenode,endnode in each line
+        :param filePath: is a txt file
+        :return g:DiGraph
+        """
+        g=nx.DiGraph()
         arcs = []
-        nodes =[]
-        with open(fileAddre, 'r') as fp:
+        with open(filePath, 'r') as fp:
             line = fp.readline()
             while line:
-                if line.startswith('\xef\xbb\xbf'):
-            		line = line[3:]
-                a = line.strip().split(',')
-                b = [i.strip() for i in a if i is not '']
-                print b
-                arcs.append([b[0],b[1]])
+                #if line.startswith('\xef\xbb\xbf'):
+            	#	line = line[3:]
+                x = line.strip().split(',')
+                x_normalized = [i.strip() for i in x if i is not '']
+                arcs.append([x_normalized[0],x_normalized[1]])
                 line = fp.readline()
-        all_nodes = sum(arcs,[])
-        nodes = [i for i in set(all_nodes)]
-        for i in range(len(nodes)):
-            G.add_node(i+1,ga = nodes[i])
-        for i in arcs:
-            G.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,{'weight':1.0})
-        return G
-    def createNetFromList(self,pairList):
-        G=nx.DiGraph()
-        nodes =[]
-        all_nodes = sum(pairList,[])
-        nodes = [i for i in set(all_nodes)]
-        for i in range(len(nodes)):
-            G.add_node(i+1,ga = nodes[i])
-        for i in pairList:
-            G.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,{'weight':1.0})
-        return G
-        
-    # arc(node1,node2,weight)
-    def createNetViaMatrixWithWeight(self,npArray):
-				G=nx.DiGraph()
-				#npArray = coocc
-				arcs = []
-				nodes =[]
-				for i in range(npArray.shape[0]):
-				    for j in range(i):
-				        arcs.append([i+1,j+1,npArray[i,j]])
-				        #all_nodes = sum([arc[:2] for arc in arcs],[])
-				nodes = [i+1 for i in range(npArray.shape[0])]
-				for i in range(len(nodes)):
-				    G.add_node(i+1,ga = nodes[i])
-				for i in arcs:
-				    G.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,{'weight':i[2]})
-				return G
+        g = self.createNetFromList(arcs)
+        return g
 
-    def createNetViaPairWithWeight(self,fileAddre):
-        G=nx.DiGraph()
+    def createNetFromMatrixWithWeight(self,cooccur_array):
+        """
+        create networkx DiGraph g from a 2-D numpy array indicating
+         the adjacency matrix of a network
+        :nparam cooccur_array: is a txt file
+        :return g:DiGraph, each node has two attributions, namely,{'lable':str,'weight':float}
+        """
+        g=nx.DiGraph()
         arcs = []
-        nodes =[]
-        with open(fileAddre, 'r') as fp:
+        for i in range(cooccur_array.shape[0]):
+            for j in range(i):
+                # arc: [node1,node2,weight]
+                arcs.append([i+1,j+1,cooccur_array[i,j]])
+		nodes = [i+1 for i in range(cooccur_array.shape[0])]
+		for i in range(len(nodes)):
+			g.add_node(i+1,label = nodes[i])
+		for i in arcs:
+			g.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,{'weight':i[2]})
+		return g
+
+    def createNetFromPairWithWeight(self,filePath):
+        """
+        create networkx DiGraph g from a txt file with sourcenode,endnode,weight in each line
+        :param filePath: is a txt file
+        :return g:DiGraph
+        """
+        g=nx.DiGraph()
+        arcs = []
+        with open(filePath, 'r') as fp:
             line = fp.readline()
             while line:
-                  a = line.strip().split(',')
-                  b = [i for i in a if i is not '']
-                  arcs.append([b[0],b[1],b[2]])
+                  x = line.strip().split(',')
+                  x_normalized = [i for i in x if i is not '']
+                  arcs.append([x_normalized[0],x_normalized[1],x_normalized[2]])
                   line = fp.readline()
-        all_nodes = sum([arc[:2] for arc in arcs],[])
-        nodes = [i for i in set(all_nodes)]
+        nodes_collection = sum([arc[:2] for arc in arcs],[])
+        nodes = [i for i in set(nodes_collection)]
         for i in range(len(nodes)):
-            G.add_node(i+1,ga = nodes[i])
+            g.add_node(i+1,label = nodes[i])
         for i in arcs:
-            G.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,weight=i[2])
-        return G
+            g.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,weight=i[2])
+        return g
 
-    # list format [sourcenode,endnode,reltype]
-    # notice:reltype is Integer
-    def createNetWithRelTypeFromList(self,tripleList):
-        G=nx.DiGraph()
-        arcs = []
-        nodes =[]
-        all_nodes = sum([arc[:2] for arc in tripleList],[])
-        nodes = [i for i in set(all_nodes)]
+    def createNetWithRelTypeFromList(self,triple_array):
+        """
+        create networkx DiGraph g from a list with [sourcenode,endnode,arctype] in each element
+         notice:reltype is Integer
+        :param triple_array: is a list
+        :return g:DiGraph
+        """
+        g=nx.DiGraph()
+        nodes_collection = sum([arc[:2] for arc in triple_array],[])
+        nodes = [i for i in set(nodes_collection)]
         for i in range(len(nodes)):
-            G.add_node(i+1,ga = nodes[i])
-        for i in tripleList:
-            G.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,type=i[2])
-        return G
-
+            g.add_node(i+1,ga = nodes[i])
+        for i in triple_array:
+            g.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,type=i[2])
+        return g
 
     # create partition for indicating entity type,and finally output file
     #entityType_list format [entity,type]

@@ -53,10 +53,9 @@ class PajekUtil(object):
 
     def createNetFromMatrixWithWeight(self,cooccur_array):
         """
-        create networkx DiGraph g from a 2-D numpy array indicating
-         the adjacency matrix of a network
+        create networkx DiGraph g from a 2-D numpy array which indicates its adjacency matrix
         :nparam cooccur_array: is a txt file
-        :return g:DiGraph, each node has two attributions, namely,{'lable':str,'weight':float}
+        :return g:DiGraph, each node has two attributions, namely,{'label':str,'weight':float}
         """
         g=nx.DiGraph()
         arcs = []
@@ -110,44 +109,48 @@ class PajekUtil(object):
             g.add_edge(nodes.index(i[0])+1,nodes.index(i[1])+1,type=i[2])
         return g
 
-    # create partition for indicating entity type,and finally output file
-    #entityType_list format [entity,type]
-    # notice:entitytype is Integer
-    # notice:entitytype_list may larger than e.nodes() as a result of isolation nodes existing in network
-    def createPartition4EntityTypeFromList(self,g,entityType_list,fileAddre):
+    def createPartition4EntityTypeFromList(self, g, entityType_list, filePath):
+        '''
+        create partition file from a list containing entity type of each node.
+        notice:len(entitytype_list) maybe larger than len(g.nodes()), since DiGraph g is only the independent component
+        of origial network while entitytype_list contains the entity types of all nodes from original network
+        :param g: DiGraph
+        :param entityType_list: entityType_list format [entity,type] and type is Integer
+        :param filePath: output file
+        :return:
+        '''
         partition = [0 for i in range(len(g.nodes()))]
-
         for i in g.node.keys():
-            #partition.append(0)
             for j in range(len(entityType_list)):
-                if entityType_list[j][0] == g.node[i]['ga']:
+                if entityType_list[j][0] == g.node[i]['label']:
                     partition[i-1] = entityType_list[j][1]
                     break;
-        with open(fileAddre, 'w') as fp:
+        with open(filePath, 'w') as fp:
             fp.write("*Vertices "+str(len(g))+"\n")
             for i in range(len(partition)):
-
                 fp.write(str(partition[i])+"\n")
-    # 20191007:update this function
-    # 1.add paramter edgeType to indicate whether the output network is directed or not
-    # 2.decide whether the network is weighted or not,edge is classified or not
-    # networkType = {'Arcs','Edges'}
-    def writeGraph2pajekNetFile(self,g,fileAddre,networkType='Arcs'):
 
+    def writeGraph2pajekNetFile(self, g, filePath, networkType='Arcs'):
+        '''
+        This function is added on 20191007 by Liang Chen
+        :param g:
+        :param filePath:
+        :param networkType = {'Arcs','Edges'}, indicate whether the output network is directed or not,networkType
+        :return:
+        '''
         nodes = g.nodes()
-        edges = g.edges()
         edges_list = []
         type_dict = {}
-        #what this type_dict store is key = type,value = [[head node，tail node，weight][...]]
-
+        #In type_dict, key = type,value = [[head node，tail node，weight][...]]
         for i in g.edges():
+            # if edge has 'weight' attribution, output it as edge weight
             if g[i[0]][i[1]].get('weight', -1.0) != -1.0:
                 edge_tmp = str(nodes.index(i[0]) + 1) + " " + str(nodes.index(i[1]) + 1) + " "\
                             + str(g[i[0]][i[1]]['weight'])
+            # if edge dont have 'weight' attribution, output default value -1 as edge weight
             else:
                 edge_tmp = str(nodes.index(i[0]) + 1) + " " + str(nodes.index(i[1]) + 1) + " " + str(
                     1.0)
-
             if g[i[0]][i[1]].get('type',-1.0)!=-1.0:
                 type_tmp = g[i[0]][i[1]]['type']
                 if type_dict.get(type_tmp,[])==[]:
@@ -155,14 +158,11 @@ class PajekUtil(object):
                 type_dict[type_tmp].append(edge_tmp)
             else:
                 edges_list.append(edge_tmp)
-
-        with open(fileAddre, 'w') as fp:
+        with open(filePath, 'w') as fp:
             fp.write("*Vertices "+str(len(g))+"\n")
             for i in range(len(nodes)):
-                fp.write(str(i+1)+" \""+str(g.node[nodes[i]]['ga'])+"\" 0.0 0.0 0.0\n")
-
+                fp.write(str(i+1)+" \""+str(g.node[nodes[i]]['label'])+"\" 0.0 0.0 0.0\n")
             # check edge of network
-
             if edges_list!=[]:
                 if networkType == 'Arcs':
                     fp.write("*Arcs \n")
@@ -184,9 +184,14 @@ class PajekUtil(object):
                     for str_tmp in type_dict[type_tmp]:
                         fp.write(str_tmp + "\n")
 
-    def writeGraph2CytoscapeXGMML(self,g,output_file_addr):
-
-        with open(output_file_addr, 'w') as fid:
+    def writeGraph2CytoscapeXGMML(self, g, filePath):
+        '''
+        output DiGraph in cytoscape format
+        :param g:
+        :param filePath:
+        :return:
+        '''
+        with open(filePath, 'w') as fid:
             addHead(fid, 'network')
             for nodeID in g.vs:
                 addNode(fid, nodeID['name'], nodeID.index, fill='#007FFF', shape='RECTANGLE')
@@ -194,104 +199,133 @@ class PajekUtil(object):
                 addEdge(fid, edge[0], edge[1], str(edge[0]) + ' to ' + str(edge[1]), SourceArrowShape='NONE',
                         TargetArrowShape='ARROW', )
             fid.write('</graph>\n')
-    def writeNodeAttOfCytoscape2file(self,g,output_file_addr):
-
-        with open(output_file_addr, 'w') as f:
+    def writeNodeAttOfCytoscape2file(self, g, filePath):
+        '''
+        write attribution of nodes in DiGraph in cytoscape file format
+        :param g:
+        :param filePath:
+        :return:
+        '''
+        with open(filePath, 'w') as f:
             f.write('node_type' + '\n')
             for nodeID in g.nodes():
-                f.write(g.node[nodeID]['ga'] + '=' + str(g.node[nodeID]['type']) + '\n')
+                f.write(g.node[nodeID]['label'] + '=' + str(g.node[nodeID]['type']) + '\n')
 
-    def writeEdgeAttOfCytoscape2file(self, g, output_file_addr):
-        with open(output_file_addr, 'w') as f:
+    def writeEdgeAttOfCytoscape2file(self, g, filePath):
+        '''
+        write attribution of edges in DiGraph in cytoscape file format
+        :param g:
+        :param filePath:
+        :return:
+        '''
+        with open(filePath, 'w') as f:
             f.write('edge_type' + '\n')
             for edge in g.edges():
                 f.write(
-                    g.node[edge[0]]['ga'] + '(pp)' + g.node[edge[1]]['ga'] + '=' + str(g[edge[0]][edge[1]]['type']) + '\n')
-    def writeGraph2CytoscapeCSV(self,g,output_file_addr):
-        with open(output_file_addr, 'w') as f:
+                    g.node[edge[0]]['label'] + '(pp)' + g.node[edge[1]]['label'] + '=' + str(g[edge[0]][edge[1]]['type']) + '\n')
+    def writeGraph2CytoscapeCSV(self, g, filePath):
+        '''
+        write DiGraph in cytoscape supported CSV format
+        :param g:
+        :param filePath:
+        :return:
+        '''
+        with open(filePath, 'w') as f:
             for edge in g.edges():
-                f.write(g.node[edge[0]]['ga'] + '\t' + g.node[edge[1]]['ga'] + '\t' + str(
+                f.write(g.node[edge[0]]['label'] + '\t' + g.node[edge[1]]['label'] + '\t' + str(
                     g[edge[0]][edge[1]]['type'])  + '\n')
-                '''
-                f.write(g.vs[edge[0]]['name'] + '\t' + g.vs[edge[1]]['name'] + '\t' + str(
-                    g.es.find(_source=edge[0], _target=edge[1])['weight']) + '\t' + str(
-                    g.vs[edge[0]]['weight']) + '\t' + str(g.vs[edge[1]]['weight']) + '\n')
-                '''
 
-    #debugged
-    
     def getMaxWeightPathBySingleNode(self,nodeID):
+        '''
+        #debugged by Liang Chen on 20201129
+        search global main path in self.g given a source node
+        :param nodeID: ID of source node
+        :return:a list with two element [weight of resulted path, an instance of DiGraph representing the resulted path]
+        '''
         q = Queue.Queue()
         q.put(nodeID)
         dic = dict()
         dic[nodeID]=[0.0,[nodeID]]
         while not q.empty():
-            tmp = q.get()
-            successors = self.g.successors(tmp)
+            nodeID_tmp = q.get()
+            successors = self.g.successors(nodeID_tmp)
             for i in successors:
                 if dic.get(i) is None:
-                    #print "way1"
                     q.put(i)
-                    tmp3 = copy.copy(dic.get(tmp)[1])
-                    tmp3.append(i)
-                    dic[i]=[dic.get(tmp)[0]+self.g[tmp][i]['weight'],tmp3]
+                    nodeID_tmp_2 = copy.copy(dic.get(nodeID_tmp)[1])
+                    nodeID_tmp_2.append(i)
+                    dic[i]=[dic.get(nodeID_tmp)[0] + self.g[nodeID_tmp][i]['weight'], nodeID_tmp_2]
                 else:
-                    tmp2 = dic.get(i)
-                    #print "way2"
-                    if tmp2[0] < dic.get(tmp)[0]+self.g[tmp][i]['weight']:
-                        tmp3 = copy.copy(dic.get(tmp)[1])
-                        tmp3.append(i)
-                        dic[i]=[dic.get(tmp)[0]+self.g[tmp][i]['weight'],tmp3]
+                    nodeID_tmp_3 = dic.get(i)
+                    if nodeID_tmp_3[0] < dic.get(nodeID_tmp)[0]+self.g[nodeID_tmp][i]['weight']:
+                        nodeID_tmp_2 = copy.copy(dic.get(nodeID_tmp)[1])
+                        nodeID_tmp_2.append(i)
+                        dic[i]=[dic.get(nodeID_tmp)[0] + self.g[nodeID_tmp][i]['weight'], nodeID_tmp_2]
         result = sorted(dic.items(),lambda x,y:cmp(x[1][0],y[1][0]),reverse=True)
-        a = result[0]
-        return a
-    # given file including pns,then create Partition 
-    def createPartitionByLabelsListFile(self,g,fileAddre,fileAddre_1):
+        return result[0]
+
+    def createPartitionByLabelsListFile(self, g, clu_input, clu_output):
+        '''
+        Given a txt file containing a list of patentNo, create corresponding partition file
+        :param g: an instance of DiGraph object
+        :param clu_input: a txt file with each line in 'patentNo,...' format
+        :param clu_output: a clu file for pajek to read the partition information
+        :return: None
+        '''
         partition = []
         nodes =[]
-        with open(fileAddre, 'r') as fp:
+        with open(clu_input, 'r') as fp:
             line = fp.readline()
             while line:
-                  a = line.strip().find(',')
-                  b = line[:a]
-                  nodes.append(b.strip())
+                  pos = line.strip().find(',')
+                  patentNo = line[:pos]
+                  nodes.append(patentNo.strip())
                   line = fp.readline()   
         for i in range(len(g.nodes())):
             partition.append(0)
             for j in range(len(nodes)):
-                if nodes[j] == g.node[i]['ga']:
+                if nodes[j] == g.node[i]['label']:
                     partition[i] = 1
                     break;
-        with open(fileAddre_1, 'w') as fp:
+        with open(clu_output, 'w') as fp:
             fp.write("*Vertices "+str(len(g))+"\n")
             for i in range(len(partition)):
-                print(partition[i]+"\n")
                 fp.write(partition[i]+"\n")
 
-
-    # given parent net and child net,create Partition  signaling child nodes in parent net
-    def createPartitionByNetFile(self,ParentNetFile,ChildNetFile,partitionFile):
-        g1 = self.getGraphFromPajeknet(ParentNetFile)
-        g2 = self.getGraphFromPajeknet(ChildNetFile)
-        
+    def createPartitionByNetFile(self, graphFile, subgraphFile, partitionFile):
+        '''
+        Given a graph and a subgraph,create a partition file to label the nodes of subgraph from graph parent
+        :param graphFile: a pajek net file
+        :param subgraphFile: a pajek net file
+        :param partitionFile: output file
+        :return: None
+        '''
+        g1 = self.getGraphFromPajeknet(graphFile)
+        g2 = self.getGraphFromPajeknet(subgraphFile)
         partition = []
         for i in range(len(g1.nodes())):
             partition.append(0)
             for j in range(len(g2.nodes())):
-                if g2.node[j+1]['ga'] == g1.node[i+1]['ga']:
+                if g2.node[j+1]['label'] == g1.node[i+1]['label']:
                     partition[i] = 1
                     break;
         with open(partitionFile, 'w') as fp:
             fp.write("*Vertices "+str(len(g1))+"\n")
             for i in range(len(partition)):
                 fp.write(str(partition[i])+"\n")
-    #return [weight,graph]
+
     def getMaxWeightPathBySingleNode_Graph(self,nodeID,g):
+        '''
+        search global main path in a graph given a source node
+        :param nodeID: ID of source node
+        :param g: Graph
+        :return:a list with two element [weight of resulted path, an instance of DiGraph representing the resulted path]
+        '''
         q = Queue.Queue()
         graph = nx.DiGraph()
         q.put(nodeID)
         dic = dict()
-        graph.add_node(nodeID,ga = g.node[nodeID]['ga'])
+        graph.add_node(nodeID,ga = g.node[nodeID]['label'])
         dic[nodeID]=[0.0,graph]
         while not q.empty():
             tmp = q.get()
@@ -300,177 +334,178 @@ class PajekUtil(object):
                 if dic.get(i) is None:
                     q.put(i)
                     tmp3 = copy.deepcopy(dic.get(tmp)[1])
-                    tmp3.add_node(i,ga = g.node[i]['ga'])
+                    tmp3.add_node(i,ga = g.node[i]['label'])
                     tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                     dic[i]=[dic.get(tmp)[0]+g[tmp][i]['weight'],tmp3]
                 else:
                     tmp2 = dic.get(i)
                     if tmp2[0] < dic.get(tmp)[0]+g[tmp][i]['weight']:
                         tmp3 = copy.deepcopy(dic.get(tmp)[1])
-                        tmp3.add_node(i,ga = g.node[i]['ga'])
+                        tmp3.add_node(i,ga = g.node[i]['label'])
                         tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                         dic[i]=[dic.get(tmp)[0]+g[tmp][i]['weight'],tmp3]
         result = sorted(dic.items(),lambda x,y:cmp(x[1][0],y[1][0]),reverse=True)
-        a = result[0]
-        return a
-    #if there exists multiple maxWeight path,draw them all
-    #(3561, [4.200226000000001, [graph1,graph2,......]])
+        return result[0]
+    #
+    #
     def getmulti_MaxWeightPathBySingleNode_Graph(self,nodeID,g):
+        '''
+        Given a source node, if there exists multiple maxWeight paths in Graph g,draw them all
+        :param nodeID:
+        :param g: DiGraph
+        :return: a list in format like [4.200226000000001, [graph1,graph2,......]]
+        '''
         q = Queue.Queue()
         graph = nx.DiGraph()
         q.put(nodeID)
         dic = dict()
-        graph.add_node(nodeID,ga = g.node[nodeID]['ga'])
+        graph.add_node(nodeID,ga = g.node[nodeID]['label'])
         dic[nodeID]=[0.0,[graph]]
         while not q.empty():
             tmp = q.get()
             successors = g.successors(tmp)
             for i in successors:
-
                 if dic.get(i) is None:
-                    #print "way1"
                     q.put(i)
                     tmp4 = copy.deepcopy(dic.get(tmp)[1])
-                    
-                    for tmp3 in tmp4: 
-                        tmp3.add_node(i,ga = g.node[i]['ga'])
+                    for tmp3 in tmp4:
+                        tmp3.add_node(i,ga = g.node[i]['label'])
                         tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                     dic[i]=[dic.get(tmp)[0]+g[tmp][i]['weight'],tmp4]
                 else:
                     tmp2 = dic.get(i)
-                    #print "way2"
                     if tmp2[0] < dic.get(tmp)[0]+g[tmp][i]['weight']:
                         tmp4 = copy.deepcopy(dic.get(tmp)[1])
                         for tmp3 in tmp4:
-                            tmp3.add_node(i,ga = g.node[i]['ga'])
+                            tmp3.add_node(i,ga = g.node[i]['label'])
                             tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                         dic[i]=[dic.get(tmp)[0]+g[tmp][i]['weight'],tmp4]
                     elif tmp2[0] == dic.get(tmp)[0]+g[tmp][i]['weight']:
                         tmp4 = copy.deepcopy(dic.get(tmp)[1])
                         for tmp3 in tmp4:
-                            tmp3.add_node(i,ga = g.node[i]['ga'])
+                            tmp3.add_node(i,ga = g.node[i]['label'])
                             tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                         tmp2[1].extend(tmp4)
                         dic[i]=tmp2
         result = sorted(dic.items(),lambda x,y:cmp(x[1][0],y[1][0]),reverse=True)
         return result[0]
 
-    def getmulti_MaxWeightPathBySingleNode_Graph_newSumMethod_textSim_topology(self, nodeID, g, gas, sim_matrix, semantic_weight =1.0,topology_weight =1.0):
+    def getmulti_MaxWeightPathBySingleNode_Graph_newSumMethod_textSim_topology(self, nodeID, g, patentNos, sim_matrix, semantic_weight =1.0, topology_weight =1.0):
+        '''
+        Search the max weight path from a Graph give source node nodeID, notice the edge weight is calculated by semantic_sim*semantic_weight+topology*topology_weight_sim
+        notice! newSumMethod refers to internode_sum_distance()
+        :param nodeID: source node
+        :param g: DiGraph
+        :param patentNos: list of patent NO.
+        :param sim_matrix: matrix of text similarity
+        :param semantic_weight: weight of textual similarity between nodes
+        :param topology_weight: weight of topological value between nodes, such as SPC,SPNC
+        :return: a list in format like [4.200226000000001, [graph1,graph2,......]]
+        '''
         q = Queue.Queue()
         graph = nx.DiGraph()
         q.put(nodeID)
         dic = dict()
-        graph.add_node(nodeID, ga=g.node[nodeID]['ga'])
+        graph.add_node(nodeID, ga=g.node[nodeID]['label'])
         dic[nodeID] = [0.0, [graph]]
         while not q.empty():
             tmp = q.get()
             successors = g.successors(tmp)
             for i in successors:
                 if dic.get(i) is None:
-                    # print "way1"
                     q.put(i)
                     tmp4 = copy.deepcopy(dic.get(tmp)[1])
-
-                    tmp_value = self.internode_sum_distance(g, gas, tmp4[0].nodes(), i, sim_matrix)
+                    tmp_value = self.internode_sum_distance(g, patentNos, tmp4[0].nodes(), i, sim_matrix)
                     for tmp3 in tmp4:
-                        tmp3.add_node(i, ga=g.node[i]['ga'])
+                        tmp3.add_node(i, ga=g.node[i]['label'])
                         tmp3.add_edge(tmp, i, weight=g[tmp][i]['weight'])
                     dic[i] = [dic.get(tmp)[0] + semantic_weight*tmp_value+topology_weight*g[tmp][i]['weight'], tmp4]
-
-                    # need change
                 else:
                     tmp2 = dic.get(i)
-                    # print "way2"
-                    tmp_value = self.internode_sum_distance(g, gas, dic.get(tmp)[1][0].nodes(), i, sim_matrix)
+                    tmp_value = self.internode_sum_distance(g, patentNos, dic.get(tmp)[1][0].nodes(), i, sim_matrix)
                     if tmp2[0] < dic.get(tmp)[0] + semantic_weight*tmp_value+topology_weight*g[tmp][i]['weight']:
-                        # need change
                         tmp4 = copy.deepcopy(dic.get(tmp)[1])
-
                         for tmp3 in tmp4:
-                            tmp3.add_node(i, ga=g.node[i]['ga'])
+                            tmp3.add_node(i, ga=g.node[i]['label'])
                             tmp3.add_edge(tmp, i, weight=g[tmp][i]['weight'])
                         dic[i] = [dic.get(tmp)[0] + semantic_weight*tmp_value+topology_weight*g[tmp][i]['weight'], tmp4]
-                        # need change
                     elif tmp2[0] == dic.get(tmp)[0] + semantic_weight*tmp_value+topology_weight*g[tmp][i]['weight']:
-                        # need change
                         tmp4 = copy.deepcopy(dic.get(tmp)[1])
                         for tmp3 in tmp4:
-                            tmp3.add_node(i, ga=g.node[i]['ga'])
+                            tmp3.add_node(i, ga=g.node[i]['label'])
                             tmp3.add_edge(tmp, i, weight=g[tmp][i]['weight'])
                         tmp2[1].extend(tmp4)
                         dic[i] = tmp2
         result = sorted(dic.items(), lambda x, y: cmp(x[1][0], y[1][0]), reverse=True)
         return result[0]
 
-
-
-    def getmulti_MaxWeightPathBySingleNode_Graph_newSumMethod(self,nodeID,g,gas,sim_matrix):
+    def getmulti_MaxWeightPathBySingleNode_Graph_newSumMethod(self, nodeID, g, patentNos, sim_matrix):
+        '''
+        Search the max weight path from a Graph give source node nodeID, notice that edge weight is measured by textual similarity and stored in sim_matrix, in addition newSumMethod refers to internode_sum_distance()
+        :param nodeID: source node
+        :param g: DiGraph
+        :param patentNos: list of patent NO.
+        :param sim_matrix: matrix of text similarity
+        :param semantic_weight: weight of textual similarity between nodes
+        :param topology_weight: weight of topological value between nodes, such as SPC,SPNC
+        :return: a list in format like [4.200226000000001, [graph1,graph2,......]]
+        '''
         q = Queue.Queue()
         graph = nx.DiGraph()
         q.put(nodeID)
         dic = dict()
-        graph.add_node(nodeID,ga = g.node[nodeID]['ga'])
+        graph.add_node(nodeID,ga = g.node[nodeID]['label'])
         dic[nodeID]=[0.0,[graph]]
         while not q.empty():
             tmp = q.get()
             successors = g.successors(tmp)
             for i in successors:
-
                 if dic.get(i) is None:
-                    #print "way1"
                     q.put(i)
                     tmp4 = copy.deepcopy(dic.get(tmp)[1])
-                    
-                    tmp_value = self.internode_sum_distance(g,gas,tmp4[0].nodes(),i,sim_matrix)
+                    tmp_value = self.internode_sum_distance(g, patentNos, tmp4[0].nodes(), i, sim_matrix)
                     for tmp3 in tmp4: 
-                        tmp3.add_node(i,ga = g.node[i]['ga'])
+                        tmp3.add_node(i,ga = g.node[i]['label'])
                         tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                     dic[i]=[dic.get(tmp)[0]+tmp_value,tmp4]
-                    
-                    #need change
                 else:
                     tmp2 = dic.get(i)
-                    #print "way2"
-                    tmp_value = self.internode_sum_distance(g,gas,dic.get(tmp)[1][0].nodes(),i,sim_matrix)
+                    tmp_value = self.internode_sum_distance(g, patentNos, dic.get(tmp)[1][0].nodes(), i, sim_matrix)
                     if tmp2[0] < dic.get(tmp)[0]+tmp_value:
-                    #need change
                         tmp4 = copy.deepcopy(dic.get(tmp)[1])
-                        
                         for tmp3 in tmp4:
-                            tmp3.add_node(i,ga = g.node[i]['ga'])
+                            tmp3.add_node(i,ga = g.node[i]['label'])
                             tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                         dic[i]=[dic.get(tmp)[0]+tmp_value,tmp4]
-                        #need change
                     elif tmp2[0] == dic.get(tmp)[0]+tmp_value:
-                        #need change
                         tmp4 = copy.deepcopy(dic.get(tmp)[1])
                         for tmp3 in tmp4:
-                            tmp3.add_node(i,ga = g.node[i]['ga'])
+                            tmp3.add_node(i,ga = g.node[i]['label'])
                             tmp3.add_edge(tmp,i,weight = g[tmp][i]['weight'])
                         tmp2[1].extend(tmp4)
                         dic[i]=tmp2
-                '''
-                for k in dic:
-                    print "dict[%s]=" % k,dic[k][0]
-                    for s in dic[k][1]:
-                        print s.edges()
-                '''
         result = sorted(dic.items(),lambda x,y:cmp(x[1][0],y[1][0]),reverse=True)
         return result[0]
 
-    def internode_sum_distance(self,g,gas,sources,target,sim_matrix):
+    def internode_sum_distance(self,sources,target,sim_matrix):
+        '''
+        calculate the weight between source nodes to target node by sum up the edge weight of target node to all source nodes
+        :param sources: source node IDs
+        :param target: target node ID
+        :param sim_matrix: textual similarities between all nodes
+        :return: result weight
+        '''
         sum_value =0.0
-        #tmp_id1 = gas.index(g.node[target]['ga'])
         for source in sources:
-            #tmp_id2 = gas.index(g.node[source]['ga'])
             sim = sim_matrix[target-1,source-1]
             sum_value=sum_value+sim
         return sum_value
-    # I NEED A MATRIX FULL OF DISTANCE FROM ONE NODE TO THE OTHER,THe function below do this job
 
-    # return a path,but it need some mends,cos forks are excluded in this function
-    #debugged
     def globalMainPath(self):
+        '''
+        search a list of max weighted paths given all source nodes
+        :return: a list of max weighted paths given all source nodes
+        '''
         l = []
         sourceNodes = self.getSourceNodes(self.g)
         for i in sourceNodes:
@@ -478,10 +513,26 @@ class PajekUtil(object):
             l.append(tmp)
         result = sorted(l,lambda x,y:cmp(x[1][0],y[1][0]),reverse=True)
         return result
-    
-    
-    #debugged
-    def multi_sources_globalMainPath(self,g):
+
+    def multi_sources_globalMainPath_return_list(self, g):
+        '''
+        search a list of max weighted paths given all source nodes
+        :param g: DiGraph
+        :return: list containing main paths from all source nodes
+        '''
+        result = []
+        sources = self.getSourceNodes(g)
+        for i in sources:
+            result.append(self.getmulti_MaxWeightPathBySingleNode_Graph(i, g))
+        result.sort(cmp=lambda x, y: cmp(x[1][0], y[1][0]), reverse=True)
+        return result
+
+    def multi_sources_globalMainPath_return_DiGraph(self,g):
+        '''
+        search a list of max weighted paths given all source nodes and merge them into a DiGraph
+        :param g: DiGraph
+        :return: DiGraph
+        '''
         resultGraph = nx.DiGraph()
         sub_graphs = []
         sourceNodes = self.getSourceNodes(g)
@@ -498,56 +549,59 @@ class PajekUtil(object):
         resultGraph.add_nodes_from(nodes)
         resultGraph.add_edges_from(edges)
         for i in resultGraph.nodes():
-            resultGraph.node[i]['ga'] = g.node[i]['ga']
+            resultGraph.node[i]['label'] = g.node[i]['label']
         for i in resultGraph.edges():
             resultGraph.edge[i[0]][i[1]]['weight'] = g.edge[i[0]][i[1]]['weight']
         return resultGraph
 
-    #debugged
     def loadNetworkFromPajeknet(self,netAddress):
+        '''
+        load a pajek net file into self.g as an DiGraph object
+        :param netAddress: absolute path of pajek net file
+        :return: None
+        '''
         G=nx.DiGraph()
         with open(netAddress, 'r') as fp:
           if fp.readline().lower().find("*vertices")!=-1:
               line = fp.readline()
-              #print line
               while line.lower().find("*edges")==-1 and line.lower().find("*arcs")==-1:
-                  a = line.strip().split(' ')
-                  b = [i for i in a if i is not '']
-                  #print b,len(b)
-                  
-                  b[1] = b[1].replace('\"','')
-                  G.add_node(int(b[0]),ga = b[1])
+                  tmp = line.strip().split(' ')
+                  tmp_2 = [i for i in tmp if i is not '']
+                  tmp_2[1] = tmp_2[1].replace('\"','')
+                  G.add_node(int(tmp_2[0]),label = tmp_2[1])
                   line = fp.readline()
               line = fp.readline()
               while line:
-                  a = line.strip().split(' ')
-                  b = [i for i in a if i is not '']
-                  G.add_edge(int(b[0]),int(b[1]),weight=float(b[2]))
+                  tmp = line.strip().split(' ')
+                  tmp_2 = [i for i in tmp if i is not '']
+                  G.add_edge(int(tmp_2[0]),int(tmp_2[1]),weight=float(tmp_2[2]))
                   line = fp.readline()
         self.g = G
 
     def loadNetworkFromPajeknetWithMultipleRelType(self, netAddress):
+        '''
+        load pajek net file with multi-type edges into an DiGraph object
+        :param netAddress: pajek net file
+        :return: G: DiGraph
+        '''
         G = nx.DiGraph()
         with open(netAddress, 'r') as fp:
             if fp.readline().lower().find("*vertices") != -1:
                 line = fp.readline()
-                #print line
                 while line.lower().find("*arcs") == -1:
-                    a = line.strip().split(' ')
-                    b = [i for i in a if i is not '']
-                    #print b, len(b)
-
-                    b[1] = b[1].replace('\"', '')
-                    G.add_node(int(b[0]), ga=b[1])
+                    tmp = line.strip().split(' ')
+                    tmp_2 = [i for i in tmp if i is not '']
+                    tmp_2[1] = tmp_2[1].replace('\"', '')
+                    G.add_node(int(tmp_2[0]), ga=tmp_2[1])
                     line = fp.readline()
                 line = line.replace('"','')
                 current_type = int(line[line.find(':')+1:].strip())
                 line = fp.readline()
                 while line:
                     if line.lower().find("*arcs") == -1:
-                        a = line.strip().split(' ')
-                        b = [i for i in a if i is not '']
-                        G.add_edge(int(b[0]), int(b[1]), weight=float(b[2]),type = current_type)
+                        tmp = line.strip().split(' ')
+                        tmp_2 = [i for i in tmp if i is not '']
+                        G.add_edge(int(tmp_2[0]), int(tmp_2[1]), weight=float(tmp_2[2]),type = current_type)
                         line = fp.readline()
                     else:
                         line = line.replace('"', '')
@@ -555,8 +609,13 @@ class PajekUtil(object):
                         line = fp.readline()
         return G
         
-    #debugged
+
     def getGraphFromPajeknet(self,netAddress):
+        '''
+        load a pajek net file into  an DiGraph object
+        :param netAddress: absolute path of pajek net file
+        :return: G DiGraph
+        '''
         G=nx.DiGraph()
         with open(netAddress, 'r') as fp:
           if fp.readline().lower().find("*vertices")!=-1:
@@ -578,83 +637,129 @@ class PajekUtil(object):
         return G
 
     def addPartition2Graph(self,g,partition,partition_name):
+        '''
+        add paritition information to DiGraph
+        :param g: DiGraph
+        :param partition:  list
+        :param partition_name: String
+        :return: g DiGraph
+        '''
         for i in g.nodes():
             g.node[i][partition_name]=partition[i-1]
         return g
 
     def convertPajek2Cytoscape(self,pajek_net,pajek_par,cyto_csv,cyto_node,cyto_edge):
+        '''
+        convert pajek file to cytoscape file
+        :param pajek_net: absolute path of net file
+        :param pajek_par: absolute path of partition file
+        :param cyto_csv: write graph information to cyto_csv
+        :param cyto_node: write node information to cyto_node
+        :param cyto_edge: write edge information to cyto_edge
+        :return: None
+        '''
         g = self.loadNetworkFromPajeknetWithMultipleRelType(pajek_net)
         par = self.loadPartitionFromClu(pajek_par)
         g = self.addPartition2Graph(g,par,'type')
-
         self.writeGraph2CytoscapeCSV(g, cyto_csv)
         self.writeNodeAttOfCytoscape2file(g, cyto_node)
         self.writeEdgeAttOfCytoscape2file(g, cyto_edge)
 
-
     def loadNetworkFromPajeknet_edges(self,netAddress):
+        '''
+        load graph into self.g from net file
+        :param netAddress: absolute path of net file
+        :return: None
+        '''
         G=nx.DiGraph()
         with open(netAddress, 'r') as fp:
           if fp.readline().lower().find("*vertices")!=-1:
               line = fp.readline()
-              print line
               while line.lower().find("*edges")==-1:
-                  a = line.strip().split(' ')
-                  b = [i for i in a if i is not '']
-                  #print b
-                  b[1] = b[1].replace('\"','')
-                  G.add_node(int(b[0]),ga = b[1])
+                  tmp = line.strip().split(' ')
+                  tmp_2 = [i for i in tmp if i is not '']
+                  tmp_2[1] = tmp_2[1].replace('\"','')
+                  G.add_node(int(tmp_2[0]),label = tmp_2[1])
                   line = fp.readline()
               line = fp.readline()
               while line:
-                  a = line.strip().split(' ')
-                  b = [i for i in a if i is not '']
-                  G.add_edge(int(b[0]),int(b[1]),weight=float(b[2]))
+                  tmp = line.strip().split(' ')
+                  tmp_2 = [i for i in tmp if i is not '']
+                  G.add_edge(int(tmp_2[0]),int(tmp_2[1]),weight=float(tmp_2[2]))
                   line = fp.readline()
         self.g = G
-    #return list
+
     def loadPartitionFromClu(self,netAddress):
-        l=[]
+        '''
+        load partition info from clu file
+        :param netAddress: absolute path of clu file
+        :return: a list of partition info
+        '''
+        clu=[]
         with open(netAddress, 'r') as fp:
           if fp.readline().lower().find("*vertices")!=-1:
               line = fp.readline()
               while line:
-                  a = line.strip().split(' ')
-                  b = [i for i in a if i is not '']
-                  l.append(b[0])
+                  tmp = line.strip().split(' ')
+                  tmp_2 = [i for i in tmp if i is not '']
+                  clu.append(tmp_2[0])
                   line = fp.readline()
-        return l
-    #create node_label-partition map,and write to excel
+        return clu
+
     def writeLabel_par_map_2_txt(self,g,clu,fileAddre):
+        '''
+        create node_label-partition map,and write to a file
+        :param g: DiGraph
+        :param clu: list
+        :param fileAddre:
+        :return: None
+        '''
         label_par_map = []
         for i in g.nodes():
-            label_par_map.append([g.node[i]['ga'],clu[i-1]])
+            label_par_map.append([g.node[i]['label'],clu[i-1]])
         label_par_map.sort(cmp=lambda x,y: cmp(x[1], y[1]), reverse=False)
-        #judge whether dict exist
         with open(fileAddre,'w') as writeFile:
             for i in range(len(label_par_map)):
                 writeFile.write(label_par_map[i][1]+','+label_par_map[i][0]+'\n')
-    def createPartitionByList(self,g,list,fileAddr):
+
+    def createPartitionByList(self, g, clu, fileAddr):
+        '''
+        create partition file given partition info contained in clu
+        :param g: DiGraph
+        :param clu: list
+        :param fileAddr: absolute path
+        :return: None
+        '''
         with open(fileAddr, 'w') as fp:
             fp.write("*Vertices "+str(len(g))+"\n")
             for i in range(len(g)):
-                if i+1 in list:
+                if i+1 in clu:
                     fp.write(str(1)+"\n")
                 else:
                     fp.write("0\n")
                     
     def getSourceNodes(self,graph):
-        result = []
+        '''
+        get source node list from a directed graph
+        :param graph: DiGraph
+        :return:
+        '''
+        sources = []
         d_in = graph.in_degree(graph)
-        for n in graph.nodes():
-            if d_in[n]==0:
-                result.append(n)
-        return result
-    # return a graph
+        for node in graph.nodes():
+            if d_in[node]==0:
+                sources.append(node)
+        return sources
+
     def multipleMaInPath(self):
         pass
-    #debugged
+
     def localMainPath(self,graph):
+        '''
+        get local main path from graph
+        :param graph: DiGraph
+        :return: local main path as an instance of DiGraph
+        '''
         queue = queue_set.Queue_Set()
         sources = self.getSourceNodes(graph)
         result_g =nx.DiGraph()
@@ -671,11 +776,11 @@ class PajekUtil(object):
             elif value_tmp==tmp_max_endNodes[0]:
                 maxSuccessorLists.append([i,tmp_max_endNodes])
         
-# maxSuccessorLists STRUCTURE:[[5, [0.083333333, [1, 2]]], [8, [0.083333333, [1]]], [9, [0.083333333, [1, 2, 4]]]]
+        # maxSuccessorLists STRUCTURE:[[5, [0.083333333, [1, 2]]], [8, [0.083333333, [1]]], [9, [0.083333333, [1, 2, 4]]]]
         for i in maxSuccessorLists:
-            result_g.add_node(i[0],ga=graph.node[i[0]]['ga'])
+            result_g.add_node(i[0],ga=graph.node[i[0]]['label'])
             for j in i[1][1]:
-                result_g.add_node(j,ga=graph.node[j]['ga'])
+                result_g.add_node(j,ga=graph.node[j]['label'])
                 queue.put(j)
                 result_g.add_edge(i[0],j,{'weight': graph[i[0]][j]['weight']})
         
@@ -683,14 +788,19 @@ class PajekUtil(object):
             src = queue.get()
             tmp_max_endNodes = self.getMaxWeightArcFromSrc(graph,src)
             for i in tmp_max_endNodes[1]:
-                result_g.add_node(i,ga=graph.node[i]['ga'])
+                result_g.add_node(i,ga=graph.node[i]['label'])
                 result_g.add_edge(src,i,{'weight': graph[src][i]['weight']})
                 queue.put(i)
         
         return result_g 
-    #return graph
-    #debugged
+
     def getMaxWeightArcFromSrc(self,graph,src):
+        '''
+        get max weighted arc given a source node
+        :param graph: DiGraph
+        :param src: source node id
+        :return: [weight, end_node_list],all nodes in end_node_list with equal weight on the arc to source node
+        '''
         successors = graph.successors(src)
         result_tmp = []
         value_tmp = 0.0
@@ -705,20 +815,26 @@ class PajekUtil(object):
         return [value_tmp,result_tmp]
         
         
-#debugged
+
     def localMainPathFromOneSource(self,graph,i):
+        '''
+        return local main path give a source node
+        :param graph: DiGraph
+        :param i: source node ID
+        :return: DiGraph
+        '''
         queue = queue_set.Queue_Set()
         result_g =nx.DiGraph()
         maxSuccessorLists = [] 
         tmp_max_endNodes = self.getMaxWeightArcFromSrc(graph,i)
         maxSuccessorLists.append([i,tmp_max_endNodes])
         
-# maxSuccessorLists STRUCTURE:[[5, [0.083333333, [1, 2]]], [8, [0.083333333, [1]]], [9, [0.083333333, [1, 2, 4]]]]
+        # maxSuccessorLists STRUCTURE:[[5, [0.083333333, [1, 2]]], [8, [0.083333333, [1]]], [9, [0.083333333, [1, 2, 4]]]]
         for i in maxSuccessorLists:
-            result_g.add_node(i[0],ga=graph.node[i[0]]['ga'])
+            result_g.add_node(i[0],ga=graph.node[i[0]]['label'])
             for j in i[1][1]:
-                result_g.add_node(j,ga=graph.node[j]['ga'])
-                print result_g.node[j]['ga']
+                result_g.add_node(j,ga=graph.node[j]['label'])
+                print result_g.node[j]['label']
                 queue.put(j)
                 result_g.add_edge(i[0],j,{'weight': graph[i[0]][j]['weight']})
         
@@ -726,13 +842,19 @@ class PajekUtil(object):
             src = queue.get()
             tmp_max_endNodes = self.getMaxWeightArcFromSrc(graph,src)
             for i in tmp_max_endNodes[1]:
-                result_g.add_node(i,ga=graph.node[i]['ga'])
-                print result_g.node[i]['ga']
+                result_g.add_node(i,ga=graph.node[i]['label'])
+                print result_g.node[i]['label']
                 result_g.add_edge(src,i,{'weight': graph[src][i]['weight']})
                 queue.put(i)
         
         return result_g 
     def getSubGraphByOneSource(self,graph,sourceNode):
+        '''
+        return a subgraph constituted by successors of a given source node
+        :param graph: DiGraph
+        :param sourceNode:source node ID
+        :return: DiGraph
+        '''
         q = Queue.Queue()
         q.put(sourceNode)
         sub_g = nx.DiGraph()
@@ -748,8 +870,13 @@ class PajekUtil(object):
                 if sub_g.has_edge(src,i)==False:
                     sub_g.add_edge(src,i,weight = graph[src][i]['weight'])
         return sub_g
-        
+
     def multiSourcePath(self,g):
+        '''
+        return a DiGraph constituted by local main paths induced by all source nodes
+        :param g: DiGraph
+        :return: DiGraph
+        '''
         sources = self.getSourceNodes(g)
         sub_graphs = []
         resultGraph =nx.DiGraph()
@@ -767,13 +894,17 @@ class PajekUtil(object):
         resultGraph.add_nodes_from(nodes)
         resultGraph.add_edges_from(edges)
         for i in resultGraph.nodes():
-            resultGraph.node[i]['ga'] = g.node[i]['ga']
+            resultGraph.node[i]['label'] = g.node[i]['label']
         for i in resultGraph.edges():
             resultGraph.edge[i[0]][i[1]]['weight'] = g.edge[i[0]][i[1]]['weight']
         return resultGraph
-    #input parameter:[sub_graph1,sub_graph2,sub_graph3,.......]
-    #output:[[weight_sum_sub1,sub_graph_1],[weight_sum_sub2,sub_graph_2],...]
+
     def sort_subGraph(self,sub_graphs):
+        '''
+        sort a list of subGraphs by graph weight
+        :param sub_graphs: [sub_graph1,sub_graph2,sub_graph3,.......]
+        :return: [[weight_sum_sub1,sub_graph_1],[weight_sum_sub2,sub_graph_2],...]
+        '''
         result = []
         for sub_graph in sub_graphs:
             sum = 0.0
@@ -783,6 +914,12 @@ class PajekUtil(object):
         result.sort(cmp=lambda x,y: cmp(x[0], y[0]), reverse=True)
         return result
     def combine_subGraph(self,sub_graphs,g):
+        '''
+        combine a list of sub_graphs into one DiGraph object
+        :param sub_graphs: list
+        :param g: DiGraph
+        :return: DiGraph
+        '''
         resultGraph =nx.DiGraph()
         nodes = []
         edges=[]
@@ -794,12 +931,18 @@ class PajekUtil(object):
         resultGraph.add_nodes_from(nodes)
         resultGraph.add_edges_from(edges)
         for i in resultGraph.nodes():
-            resultGraph.node[i]['ga'] = g.node[i]['ga']
+            resultGraph.node[i]['label'] = g.node[i]['label']
         for i in resultGraph.edges():
             resultGraph.edge[i[0]][i[1]]['weight'] = g.edge[i[0]][i[1]]['weight']
         return resultGraph
-    #[sub_graph1,sub_graph2,......]
+
     def combine_subGraphArray(self,sub_graphs,g):
+        '''
+        combine a list of sub_graphs into one DiGraph object
+        :param sub_graphs: [sub_graph1,sub_graph2,......]
+        :param g:
+        :return:
+        '''
         resultGraph =nx.DiGraph()
         nodes = []
         edges=[]
@@ -811,14 +954,20 @@ class PajekUtil(object):
         resultGraph.add_nodes_from(nodes)
         resultGraph.add_edges_from(edges)
         for i in resultGraph.nodes():
-            resultGraph.node[i]['ga'] = g.node[i]['ga']
+            resultGraph.node[i]['label'] = g.node[i]['label']
         g_edges_list = g.edges();
         if len(g_edges_list)>0 and 'weight' in g.edge[g_edges_list[0][0]][g_edges_list[0][1]].keys():
             for i in resultGraph.edges():
                 resultGraph.edge[i[0]][i[1]]['weight'] = g.edge[i[0]][i[1]]['weight']
         return resultGraph
-    # combine [[0.56,[subgraph1,subgraph2],[0.55,[subgraph3,subgraph4]]]
+
     def combine_multisubGraph(self,sub_graphs,g):
+        '''
+        combine a list of [[0.56,[subgraph1,subgraph2],[0.55,[subgraph3,subgraph4]]] into a DiGraph object
+        :param sub_graphs:  [[0.56,[subgraph1,subgraph2],[0.55,[subgraph3,subgraph4]]]
+        :param g:  DiGraph
+        :return:  DiGraph
+        '''
         resultGraph =nx.DiGraph()
         nodes = []
         edges=[]
@@ -831,7 +980,7 @@ class PajekUtil(object):
         resultGraph.add_nodes_from(nodes)
         resultGraph.add_edges_from(edges)
         for i in resultGraph.nodes():
-            resultGraph.node[i]['ga'] = g.node[i]['ga']
+            resultGraph.node[i]['label'] = g.node[i]['label']
         for i in resultGraph.edges():
             resultGraph.edge[i[0]][i[1]]['weight'] = g.edge[i[0]][i[1]]['weight']
         return resultGraph
